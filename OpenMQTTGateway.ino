@@ -67,6 +67,9 @@
 #ifdef ZgatewayRF315
   #include "config_RF315.h"
 #endif
+#ifdef ZgatewayRFCC1101
+  #include "config_RFCC1101.h"
+#endif
 #ifdef ZgatewaySRFB
   #include "config_SRFB.h"
 #endif
@@ -355,6 +358,9 @@ void setup()
   #ifdef ZgatewayRF2
     setupRF2();
   #endif
+  #ifdef ZgatewayRFCC1101
+    setupRFCC1101();
+  #endif
   #ifdef ZgatewaySRFB
     setupSRFB();
   #endif
@@ -636,6 +642,13 @@ void loop()
       timer_led_receive = millis();
       }
     #endif
+    #ifdef ZgatewayRFCC1101
+      if(RFCC1101toMQTT()){
+      trc(F("RFCC1101toMQTT OK"));
+      digitalWrite(led_receive, LOW);
+      timer_led_receive = millis();
+      }
+    #endif
     #ifdef ZgatewaySRFB
       if(SRFBtoMQTT())
       trc(F("SRFBtoMQTT OK"));
@@ -811,6 +824,9 @@ digitalWrite(led_send, LOW);
 #endif
 #ifdef ZgatewayRF2
   MQTTtoRF2(topicOri, datacallback);
+#endif
+#ifdef ZgatewayRFCC1101 
+  MQTTtoRFCC1101(topicOri, datacallback);
 #endif
 #ifdef Zgateway2G
   MQTTto2G(topicOri, datacallback);
