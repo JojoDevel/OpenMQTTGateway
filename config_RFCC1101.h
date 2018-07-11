@@ -30,8 +30,8 @@
 
 /*-------------------PIN DEFINITIONS----------------------*/
 #ifdef ESP8266
-    #define RFCC1101_RECEIVER_PIN D2 
-    #define RFCC1101_EMITTER_PIN D2 
+    #define RFCC1101_RECEIVER_PIN 4 // D2
+    #define RFCC1101_EMITTER_PIN 4
 #elif defined(ESP32)
     #define RFCC1101_RECEIVER_PIN 13 
     #define RFCC1101_EMITTER_PIN 13
