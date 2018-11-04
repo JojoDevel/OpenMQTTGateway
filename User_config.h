@@ -50,7 +50,7 @@ char mqtt_port[6] = "1883";
 
 /*-------------DEFINE YOUR NETWORK PARAMETERS BELOW----------------*/
 
-//#define ESPWifiManualSetup true //uncomment you don't want to use wifimanager for your credential settings on ESP
+#define ESPWifiManualSetup true //uncomment you don't want to use wifimanager for your credential settings on ESP
 #define WifiManager_password "your_password"
 //#define MDNS_SD //uncomment if you  want to use mdns for discovering automatically your ip server, please note that MDNS with ESP32 can cause the BLE to not work
 //#define cleanFS true //uncomment if you want to clean the ESP memory and reenter your credentials
@@ -68,6 +68,7 @@ char mqtt_port[6] = "1883";
 #endif
 
 const byte ip[] = { 192, 168, 1, 99 }; //ip adress
+const byte ip[] = { 0,0,0,0 }; //ip adress
 // Advanced network config (optional) if you want to use these parameters uncomment line 158, 172 and comment line 171  of OpenMQTTGateway.ino
 const byte gateway[] = { 192, 168, 1, 1 }; //ip adress
 const byte Dns[] = { 192, 168, 1, 1 }; //ip adress
@@ -89,12 +90,12 @@ const byte subnet[] = { 255, 255, 255, 0 }; //ip adress
 /*-------------DEFINE THE MODULES YOU WANT BELOW----------------*/
 //Addons and module management, comment the Z line
 
-#define ZgatewayRF     "RF"       //ESP8266, Arduino, ESP32
+//#define ZgatewayRF     "RF"       //ESP8266, Arduino, ESP32
 //#define ZgatewayRF315  "RF315"    //ESP8266, Arduino, ESP32
-#define ZgatewayIR     "IR"       //ESP8266, Arduino,         Sonoff RF Bridge
-#define ZgatewayBT     "BT"       //ESP8266, Arduino, ESP32
+//#define ZgatewayIR     "IR"       //ESP8266, Arduino,         Sonoff RF Bridge
+//#define ZgatewayBT     "BT"       //ESP8266, Arduino, ESP32
 //#define ZgatewayRF2    "RF2"      //ESP8266, Arduino, ESP32
-//#define ZgatewayRFCC1101    "RFCC1101"      //ESP8266, Arduino, ESP32
+#define ZgatewayRFCC1101    "RFCC1101"      //ESP8266, Arduino, ESP32
 //#define ZgatewaySRFB   "SRFB"     //                          Sonoff RF Bridge
 //#define Zgateway2G     "2G"       //ESP8266, Arduino, ESP32
 //#define ZactuatorONOFF "ONOFF"    //ESP8266, Arduino, ESP32,  Sonoff RF Bridge

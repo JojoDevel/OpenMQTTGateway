@@ -34,7 +34,7 @@
 
 C1101Radio radio = C1101Radio(SS, RFCC1101_RECEIVER_PIN);
 
-#define MAXSENDBUFFERLENGTH 200
+#define MAXSENDBUFFERLENGTH 400
 uint16_t sendBuffer[MAXSENDBUFFERLENGTH];
 uint16_t sendBufferLength = 0;
 
@@ -117,7 +117,7 @@ void MQTTtoRFCC1101(char * topicOri, char * datacallback) {
     trc("starting rf transmission");
     enterSendMode(433920000, 0x60);
 
-    for (int j = 0; j < 20; j++) {
+    for (int j = 0; j < 4; j++) {
       bool transmitting = false;
 
       for (int i = 0; i < sendBufferLength; i++ ) {
@@ -127,7 +127,7 @@ void MQTTtoRFCC1101(char * topicOri, char * datacallback) {
       }
 
       digitalWrite(RFCC1101_EMITTER_PIN, 0);
-
+      yield();
     }
     sendBufferLength = 0;
 
