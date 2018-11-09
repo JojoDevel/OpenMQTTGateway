@@ -127,7 +127,7 @@ void MQTTtoRFCC1101(char * topicOri, char * datacallback) {
       }
 
       digitalWrite(RFCC1101_EMITTER_PIN, 0);
-      delayMilliseconds(10);
+      delayMicroseconds(10000);
       yield();
     }
     sendBufferLength = 0;
