@@ -67,7 +67,6 @@ char mqtt_port[6] = "1883";
   const byte mac[] = {  0xDE, 0xED, 0xBA, 0xFE, 0x54, 0x95 }; //W5100 ethernet shield mac adress
 #endif
 
-const byte ip[] = { 192, 168, 1, 99 }; //ip adress
 const byte ip[] = { 0,0,0,0 }; //ip adress
 // Advanced network config (optional) if you want to use these parameters uncomment line 158, 172 and comment line 171  of OpenMQTTGateway.ino
 const byte gateway[] = { 192, 168, 1, 1 }; //ip adress
