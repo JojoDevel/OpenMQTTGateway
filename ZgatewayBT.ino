@@ -41,6 +41,8 @@ Thanks to wolass https://github.com/wolass for suggesting me HM 10 and dinosd ht
     #include <BLEUtils.h>
     #include <BLEScan.h>
     #include <BLEAdvertisedDevice.h>
+    #include "soc/timer_group_struct.h"
+    #include "soc/timer_group_reg.h"
 
     //Time used to wait for an interval before resending BLE infos
     unsigned long timeBLE= 0;
@@ -50,39 +52,28 @@ Thanks to wolass https://github.com/wolass for suggesting me HM 10 and dinosd ht
       
     class MyAdvertisedDeviceCallbacks: public BLEAdvertisedDeviceCallbacks {
           void onResult(BLEAdvertisedDevice advertisedDevice) {
+            trc(F("Creating BLE buffer"));
+            StaticJsonBuffer<JSON_MSG_BUFFER> jsonBuffer;
+            JsonObject& BLEdata = jsonBuffer.createObject();
             String mac_adress = advertisedDevice.getAddress().toString().c_str();
+            BLEdata.set("id", (char *)mac_adress.c_str());
             mac_adress.replace(":","");
             mac_adress.toUpperCase();
             String mactopic = subjectBTtoMQTT + mac_adress;
-            if (advertisedDevice.haveName()){
-                trc(F("Get Name "));
-                String nameBLE = advertisedDevice.getName().c_str();
-                trc(nameBLE);
-                client.publish((char *)(mactopic + "/name").c_str(),(char *)nameBLE.c_str());
-            }
-            if (advertisedDevice.haveManufacturerData()){
-                trc(F("Get ManufacturerData "));
-                String ManufacturerData = advertisedDevice.getManufacturerData().c_str();
-                trc(ManufacturerData);
-                client.publish((char *)(mactopic + "/ManufacturerData").c_str(),(char *)ManufacturerData.c_str());
-            }
-            if (advertisedDevice.haveRSSI()){
-              trc(F("Get RSSI "));       
-              String rssi = String(advertisedDevice.getRSSI());
-              String rssitopic = mactopic + subjectBTtoMQTTrssi;
-              trc(rssitopic + " " + rssi);
-              client.publish((char *)rssitopic.c_str(),(char *)rssi.c_str());
-            }
-            if (advertisedDevice.haveTXPower()){
-              trc(F("Get TXPower "));       
-              int8_t TXPower = advertisedDevice.getTXPower();
-              trc(TXPower);
-              char cTXPower[5];
-              sprintf(cTXPower, "%d", TXPower);
-              client.publish((char *)(mactopic + "/tx").c_str(),cTXPower);
-            }
+            if (advertisedDevice.haveName())              BLEdata.set("name", (char *)advertisedDevice.getName().c_str());
+            if (advertisedDevice.haveManufacturerData())  BLEdata.set("manufacturerdata", (char *)advertisedDevice.getManufacturerData().c_str());
+            if (advertisedDevice.haveRSSI())              BLEdata.set("rssi", (int) advertisedDevice.getRSSI());
+            if (advertisedDevice.haveTXPower())           BLEdata.set("txpower", (int8_t) advertisedDevice.getTXPower());
+            #ifdef subjectHomePresence
+              if (advertisedDevice.haveRSSI()) haRoomPresence(BLEdata);// this device has an rssi in consequence we can use it for home assistant room presence component
+            #endif
             if (advertisedDevice.haveServiceData()){
+
+                char mac[mac_adress.length()+1];
+                mac_adress.toCharArray(mac,mac_adress.length()+1);
+                
                 trc(F("Get service data "));
+
                 std::string serviceData = advertisedDevice.getServiceData();
                 int serviceDataLength = serviceData.length();
                 String returnedString = "";
@@ -94,27 +85,31 @@ Thanks to wolass https://github.com/wolass for suggesting me HM 10 and dinosd ht
                   } 
                   returnedString = returnedString + String(a,HEX);  
                 }
-                trc(returnedString);
-                                
-                trc(F("Get service data UUID"));
-                BLEUUID serviceDataUUID = advertisedDevice.getServiceDataUUID();
-                trc(serviceDataUUID.toString().c_str());
-
-                if (strstr(serviceDataUUID.toString().c_str(),"fe95") != NULL){
+                
+                char service_data[returnedString.length()+1];
+                returnedString.toCharArray(service_data,returnedString.length()+1);
+                service_data[returnedString.length()] = '\0';
+                #ifdef pubBLEServiceData
+                  BLEdata.set("servicedata", service_data);  
+                  BLEdata.set("servicedatauuid", (char *)advertisedDevice.getServiceDataUUID().toString().c_str());
+                #endif
+                pub((char *)mactopic.c_str(),BLEdata);
+                
+                if (strstr(BLEdata["servicedatauuid"].as<char*>(),"fe95") != NULL){
                   trc("Processing BLE device data");
-                  char service_data[returnedString.length()+1];
-                  returnedString.toCharArray(service_data,returnedString.length()+1);
-                  service_data[returnedString.length()] = '\0';
-                  char mac[mac_adress.length()+1];
-                  mac_adress.toCharArray(mac,mac_adress.length()+1);
-                  if (strstr(service_data,"209800") != NULL) {
+                  int pos = -1;
+                  pos = strpos(service_data,"209800");
+                  if (pos != -1){
                     trc("mi flora data reading");
-                    boolean result = process_data(-22,service_data,mac);
+                    boolean result = process_data(pos - 24,service_data,mac);
                   }
-                  if (strstr(service_data,"20aa01") != NULL){
+                  pos = -1;
+                  pos = strpos(service_data,"20aa01");
+                  if (pos != -1){
                     trc("mi jia data reading");
-                    boolean result = process_data(-24,service_data,mac);
+                    boolean result = process_data(pos - 26,service_data,mac);
                   }
+
                 }
             }
           }
@@ -146,6 +141,11 @@ Thanks to wolass https://github.com/wolass for suggesting me HM 10 and dinosd ht
         while(true){
             trc(taskMessage);
             delay(TimeBtw_Read);
+            
+            TIMERG0.wdt_wprotect=TIMG_WDT_WKEY_VALUE;
+            TIMERG0.wdt_feed=1;
+            TIMERG0.wdt_wprotect=0;
+            
             BLEDevice::init("");
             BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
             MyAdvertisedDeviceCallbacks myCallbacks;
@@ -157,7 +157,7 @@ Thanks to wolass https://github.com/wolass for suggesting me HM 10 and dinosd ht
     #else
     boolean BTtoMQTT(){
       unsigned long now = millis();
-      if (now > (timeBLE + TimeBtw_Read)) {//retriving value of temperature and humidity of the box from DHT every xUL
+      if (now > (timeBLE + TimeBtw_Read)) {
               timeBLE = now;
               BLEDevice::init("");
               BLEScan* pBLEScan = BLEDevice::getScan(); //create new scan
@@ -224,7 +224,6 @@ boolean BTtoMQTT() {
             yield();
           #endif
           String token = returnedString.substring(pos);
-          trc(token);
           returnedString.remove(pos,returnedString.length() );
           char token_char[token.length()+1];
           token.toCharArray(token_char, token.length()+1);
@@ -238,24 +237,47 @@ boolean BTtoMQTT() {
   
             if((strlen(d[0].extract)) == 12) // if a mac adress is detected we publish it
             {
-                strupp(d[0].extract);
-                String mactopic(d[0].extract);
-                trc(mactopic);
-                mactopic = subjectBTtoMQTT + mactopic + subjectBTtoMQTTrssi;
-                int rssi = (int)strtol(d[2].extract, NULL, 16) - 256;
-                char val[12];
-                sprintf(val, "%d", rssi);
-                client.publish((char *)mactopic.c_str(),val);
-                if (strcmp(d[4].extract, "fe95") == 0) 
-                  if (strstr(d[5].extract,"209800") != NULL) {
+              trc(F("Creating BLE buffer"));
+              StaticJsonBuffer<JSON_MSG_BUFFER> jsonBuffer;
+              JsonObject& BLEdata = jsonBuffer.createObject();
+              #ifdef subjectHomePresence
+                String HomePresenceId;
+                for (int i = 0; i<12; i++){
+                  HomePresenceId += String(d[0].extract[i]);
+                  if(((i-1) % 2 == 0) && (i!=11)) HomePresenceId += ":";
+                }
+                trc(F("HomePresenceId"));      
+                trc(HomePresenceId);
+                BLEdata.set("id", (char *)HomePresenceId.c_str());
+              #endif
+              strupp(d[0].extract);
+              String topic = subjectBTtoMQTT + String(d[0].extract);
+              int rssi = (int)strtol(d[2].extract, NULL, 16) - 256;
+              BLEdata.set("rssi", (int)rssi);
+              #ifdef subjectHomePresence
+                haRoomPresence(BLEdata);// this device has an rssi in consequence we can use it for home assistant room presence component
+              #endif
+              String Service_data(d[5].extract);
+              Service_data = Service_data.substring(14);
+              #ifdef pubBLEServiceData
+                BLEdata.set("servicedata", (char *)Service_data.c_str());
+              #endif
+              pub((char *)topic.c_str(),BLEdata);
+              if (strcmp(d[4].extract, "fe95") == 0) {
+                  int pos = -1;
+                  pos = strpos(d[5].extract,"209800");
+                  if (pos != -1) {
                     trc("mi flora data reading");
-                    boolean result = process_data(0,d[5].extract,d[0].extract);
+                    boolean result = process_data(pos - 38,(char *)Service_data.c_str(),d[0].extract);
                   }
-                  if (strstr(d[5].extract,"20aa01") != NULL){
+                  pos = -1;
+                  pos = strpos(d[5].extract,"20aa01");
+                  if (pos != -1){
                     trc("mi jia data reading");
-                    boolean result = process_data(-2,d[5].extract,d[0].extract);
+                    boolean result = process_data(pos - 40,(char *)Service_data.c_str(),d[0].extract);
                   }
-                return true;
+                  return true;
+               }
             }
           }
         }
@@ -290,7 +312,7 @@ boolean BTtoMQTT() {
       discResult.replace(RESP_END_MSG,"");
       float device_number = discResult.length()/78.0;
       if (device_number == (int)device_number){ // to avoid publishing partial values we detect if the serial data has been fully read = a multiple of 78
-        trc(F("Sending BT data to MQTT"));
+        trc(F("Sending BT data to MQTT HM1X Version<v6xx"));
         #if defined(ESP8266)
           yield();
         #endif
@@ -298,10 +320,7 @@ boolean BTtoMQTT() {
              String onedevice = discResult.substring(0,78);
              onedevice.replace(STRING_MSG,"");
              String mac = onedevice.substring(53,65);
-             String rssi = onedevice.substring(66,70);
-             String mactopic = subjectBTtoMQTT + mac + subjectBTtoMQTTRSSI;
-             trc(mactopic + " " + rssi);
-             client.publish((char *)mactopic.c_str(),(char *)rssi.c_str());
+             pub(subjectBTtoMQTT + mac,onedevice.substring(66,70));
              discResult = discResult.substring(78);
           }
           return true;
@@ -326,7 +345,11 @@ boolean BTtoMQTT() {
 #endif
 
 boolean process_data(int offset, char * rest_data, char * mac_adress){
-  
+  trc(F("Creating BLE buffer"));
+  StaticJsonBuffer<JSON_MSG_BUFFER> jsonBuffer;
+  JsonObject& BLEdata = jsonBuffer.createObject();
+  trc("rest_data");
+  trc(rest_data);
   int data_length = 0;
   switch (rest_data[51 + offset]) {
     case '1' :
@@ -334,6 +357,7 @@ boolean process_data(int offset, char * rest_data, char * mac_adress){
     case '3' :
     case '4' :
         data_length = ((rest_data[51 + offset] - '0') * 2)+1;
+        trc("data_length");
         trc(data_length);
     break;
     default:
@@ -353,41 +377,89 @@ boolean process_data(int offset, char * rest_data, char * mac_adress){
   char val[12];
   String mactopic(mac_adress);
   mactopic = subjectBTtoMQTT + mactopic;
-  
- 
+
+  // second value
+  char val2[12];
+  trc("rest_data");
+  trc(rest_data);
   // Mi flora provides tem(perature), (earth) moi(sture), fer(tility) and lux (illuminance)
-  // Mi Jia provides tem(perature) and hum(idity)
+  // Mi Jia provides tem(perature), batt(erry) and hum(idity)
   // following the value of digit 47 we determine the type of data we get from the sensor
   switch (rest_data[47 + offset]) {
     case '9' :
-          mactopic = mactopic + subjectBTtoMQTTfer;
           dtostrf(value,0,0,val);
+          BLEdata.set("fer", val);
     break;
     case '4' :
-          mactopic = mactopic + subjectBTtoMQTTtem;
           if (value > 65000) value = value - 65535;
           dtostrf(value/10,3,1,val); // temp has to be divided by 10
+          BLEdata.set("tem", val);
     break;
     case '6' :
-          mactopic = mactopic + subjectBTtoMQTThum;
           if (value > 65000) value = value - 65535;
           dtostrf(value/10,3,1,val); // hum has to be divided by 10
+          BLEdata.set("hum", val);
     break;
     case '7' :
-          mactopic = mactopic + subjectBTtoMQTTlux;
           dtostrf(value,0,0,val);
+          BLEdata.set("lux", val);
      break;
     case '8' :
-          mactopic = mactopic + subjectBTtoMQTTmoi;
           dtostrf(value,0,0,val);
+          BLEdata.set("moi", val);
+     break;
+     
+    case 'a' : // batteryLevel
+          dtostrf(value,0,0,val);
+          BLEdata.set("batt", val);
+     break;
+
+     case 'd' : // temp+hum
+          char tempAr[8];
+          // humidity
+          memcpy(tempAr, data, 4);
+          tempAr[4] = '\0';
+          value = strtol(tempAr, NULL, 16);
+          if (value > 65000) value = value - 65535;
+          dtostrf(value/10,3,1,val); // hum has to be divided by 10
+          BLEdata.set("hum", val);
+          // temperature
+          memcpy(tempAr, &data[4], 4);
+          tempAr[4] = '\0';
+          value = strtol(tempAr, NULL, 16);
+          if (value > 65000) value = value - 65535;
+          dtostrf(value/10,3,1,val2); // hum has to be divided by 10
+          BLEdata.set("tem", val2);
      break;
     default:
     trc("can't read values");
     return false;
     }
-    client.publish((char *)mactopic.c_str(),val);;
-    trc(val);
+    pub((char *)mactopic.c_str(),BLEdata);
     return true;
+}
+
+#ifdef subjectHomePresence
+void haRoomPresence(JsonObject& HomePresence){
+  int BLErssi = HomePresence["rssi"];
+  trc(F("BLErssi"));
+  trc(BLErssi);
+  int txPower = HomePresence["txpower"]|0;
+  if (txPower == 0)   txPower = -59; //if tx power is not found we set a default calibration value
+  trc(F("txPower"));
+  trc(txPower);
+  double ratio = BLErssi*1.0/txPower;
+  double distance;
+  if (ratio < 1.0) {
+    distance = pow(ratio,10);
+  }else{
+    distance = (0.89976)* pow(ratio,7.7095) + 0.111;  
   }
+  HomePresence["distance"] = distance;
+  trc(F("BLE DISTANCE :"));
+  trc(distance);
+  pub(subjectHomePresence,HomePresence);
+}
+#endif
 
 #endif
