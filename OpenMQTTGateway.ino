@@ -904,9 +904,6 @@ void receivingMQTT(char * topicOri, char * datacallback) {
     #ifdef ZgatewayRF2
       MQTTtoRF2(topicOri, jsondata);
     #endif
-    #ifdef ZgatewayRFCC1101 
-  	  MQTTtoRFCC1101(topicOri, jsondata);
-    #endif
     #ifdef Zgateway2G
       MQTTto2G(topicOri, jsondata);
     #endif

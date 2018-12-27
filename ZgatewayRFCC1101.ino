@@ -81,6 +81,7 @@ boolean RFCC1101toMQTT() {
   return false;
 }
 
+#ifdef simplePublishing
 void MQTTtoRFCC1101(char * topicOri, char * datacallback) {
   String topic = String(topicOri);
 
@@ -135,6 +136,11 @@ void MQTTtoRFCC1101(char * topicOri, char * datacallback) {
     enterReceiveMode();
   }
 }
+#endif
+
+#ifdef jsonPublishing
+
+#endif
 
 void enterReceiveMode() {
   pinMode(RFCC1101_RECEIVER_PIN, INPUT);
