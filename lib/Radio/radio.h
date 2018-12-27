@@ -30,7 +30,7 @@ class C1101Radio : public CC1101
 		long diff = newTime - time;
 		if (diff > MAXTIME) {
 		  time = -1L;
-		  if(getBufferLength()>60){		  
+		  if(getBufferLength()>20){		  
 		  packetBufferReady=true;
 		  } else {
 		  resetBuffer();
